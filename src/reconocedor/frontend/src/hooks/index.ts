@@ -103,6 +103,7 @@ export function useFaceWebSocket(options: UseFaceWebSocketOptions): UseFaceWebSo
   const socketRef = useRef<WebSocket | null>(null);
   const intervalRef = useRef<number | null>(null);
   const sendingRef = useRef(false);
+  const abandonedRef = useRef(false);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [socketState, setSocketState] = useState<WebSocket | null>(null);
@@ -134,7 +135,14 @@ export function useFaceWebSocket(options: UseFaceWebSocketOptions): UseFaceWebSo
       video.srcObject = mediaStream;
       video.muted = true;
       video.playsInline = true;
-      await video.play();
+
+      // Play explicitly — ignore interrupted errors that happen when the
+      // srcObject assignment triggers a new load at the same time.
+      try {
+        await video.play();
+      } catch {
+        // The browser has already started playback from the srcObject assign.
+      }
 
       setStream(mediaStream);
       setIsCameraReady(true);
@@ -164,9 +172,15 @@ export function useFaceWebSocket(options: UseFaceWebSocketOptions): UseFaceWebSo
       return;
     }
 
+    abandonedRef.current = false;
+
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
+      if (abandonedRef.current) {
+        ws.close();
+        return;
+      }
       setIsSocketOpen(true);
       setError(null);
       ws.send(
@@ -201,6 +215,15 @@ export function useFaceWebSocket(options: UseFaceWebSocketOptions): UseFaceWebSo
     };
 
     ws.onclose = () => {
+      // Only clear state if this WebSocket is still the current one.
+      // In React Strict Mode the effect is mounted twice, and the old
+      // WebSocket's onclose can fire asynchronously after a new
+      // WebSocket has already been assigned to socketRef.current,
+      // silently nullifying the ref and causing the UI to think the
+      // socket is not connected.
+      if (socketRef.current !== ws) {
+        return;
+      }
       setIsSocketOpen(false);
       setIsStreaming(false);
       socketRef.current = null;
@@ -220,6 +243,7 @@ export function useFaceWebSocket(options: UseFaceWebSocketOptions): UseFaceWebSo
     setIsStreaming(false);
 
     if (socketRef.current) {
+      abandonedRef.current = true;
       socketRef.current.close();
       socketRef.current = null;
     }

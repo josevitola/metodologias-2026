@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 import cv2
 import numpy as np
+from keras.applications.efficientnet import preprocess_input
 
 from app.config import (
     BOX_COLOR,
@@ -42,7 +43,8 @@ def crop_and_normalize_face(frame: np.ndarray, bbox: Tuple[int, int, int, int]) 
     face = frame[y : y + h, x : x + w]
     face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
     face = cv2.resize(face, INPUT_SIZE, interpolation=cv2.INTER_AREA)
-    face = face.astype("float32") / 255.0
+    face = face.astype("float32")
+    face = preprocess_input(face)
     face = np.expand_dims(face, axis=0)
     return face
 
