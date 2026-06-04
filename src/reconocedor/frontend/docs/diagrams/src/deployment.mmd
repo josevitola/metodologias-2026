@@ -1,0 +1,76 @@
+%% Deployment Diagram - Face Detection & Recognition System
+%% Converted from PlantUML deployment.puml
+
+flowchart TB
+    subgraph DevMachine["Developer Machine (macOS)"]
+        direction TB
+
+        subgraph FrontendNode["Frontend (Node.js 24)"]
+            direction TB
+            Vite["Vite Dev Server"]
+            PnpmLock["pnpm-lock.yaml"]
+            PackageJson["package.json"]
+            subgraph Src["src/"]
+                App["App.tsx"]
+                FaceWsDemo["pages/FaceWsDemo.tsx"]
+                Hook["hooks/index.ts"]
+            end
+            subgraph PublicModels["public/models/"]
+                FaceApiModels["face-api.js models"]
+            end
+            subgraph Diagrams["docs/diagrams/src/"]
+                ArchOverview["architecture_overview.wsd"]
+                C4Context["c4_context.puml"]
+                C4Containers["c4_containers.puml"]
+                SeqFrameFlow["sequence_frame_flow.puml"]
+                DeployDiagram["deployment.puml"]
+            end
+        end
+
+        subgraph BackendNode["Backend (Python 3)"]
+            direction TB
+            Uvicorn["uvicorn"]
+            MainPy["main.py"]
+            Requirements["requirements.txt"]
+            subgraph App["app/"]
+                Config["config.py"]
+                Schemas["schemas.py"]
+                Utils["utils.py"]
+                AppMain["main.py"]
+            end
+            subgraph Models["models/"]
+                KerasModel["best_transfer_efficientnet.keras"]
+            end
+            subgraph BackendDocs["docs/"]
+                ApiYaml["api_endpoints.yaml"]
+            end
+        end
+
+        subgraph Webcam["Webcam Device"]
+            Camera["Camera"]
+        end
+    end
+
+    subgraph External["External Dependencies"]
+        direction TB
+        HaarCascade["OpenCV Haar Cascade<br>(/opt/homebrew/.../cv2/data/)"]
+        PyPkgs["Python Packages<br>(FastAPI, keras, tensorflow,<br>numpy, opencv-python)"]
+        NpmPkgs["npm Packages<br>(react, face-api.js,<br>styled-components, vite)"]
+    end
+
+    DevMachine -->|Installs from| External
+    Vite -.->|"HTTP (localhost:8000)"| Uvicorn
+    Uvicorn -->|cv2.VideoCapture(0)| Camera
+    Uvicorn -->|keras.saving.load_model()| KerasModel
+    Uvicorn -->|cv2.CascadeClassifier()| HaarCascade
+
+    classDef devnode fill:#F0F0F0,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    classDef artifact fill:#FFFACD,stroke:#333,stroke-width:1px
+    classDef folder fill:#E8E8E8,stroke:#666,stroke-width:1px
+    classDef file fill:#FFFFFF,stroke:#666,stroke-width:1px
+    classDef external fill:#FFB6C1,stroke:#333,stroke-width:1px
+    class DevMachine,FrontendNode,BackendNode,Webcam devnode
+    class Vite,PnpmLock,PackageJson,Uvicorn,MainPy,Requirements artifact
+    class Src,PublicModels,Diagrams,App,Models,BackendDocs folder
+    class App,FaceWsDemo,Hook,FaceApiModels,ArchOverview,C4Context,C4Containers,SeqFrameFlow,DeployDiagram,Config,Schemas,Utils,AppMain,KerasModel,ApiYaml,Camera file
+    class HaarCascade,PyPkgs,NpmPkgs external

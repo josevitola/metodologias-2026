@@ -1,0 +1,159 @@
+openapi: "3.0.0"
+info:
+  title: "Face Video Inference API"
+  version: "1.0.0"
+  description: >
+    Backend API for real-time face detection and recognition.
+    Uses OpenCV Haar Cascade for face detection and a Keras EfficientNet model
+    for face classification (predicting eye state / face attributes).
+  contact:
+    name: "Camaleones Team"
+
+servers:
+  - url: "http://localhost:8000"
+    description: "Local development server"
+
+paths:
+  /health:
+    get:
+      summary: "Health check endpoint"
+      description: "Returns the operational status of the API, including whether the ML model and face detector are loaded, and the configured file paths."
+      operationId: "health"
+      responses:
+        "200":
+          description: "API is healthy and operational"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  model_loaded:
+                    type: boolean
+                    description: "Whether the Keras model was successfully loaded"
+                    example: true
+                  camera_source:
+                    type: string
+                    description: "The camera source identifier (0 for default webcam)"
+                    example: "0"
+                  model_path:
+                    type: string
+                    description: "Filesystem path to the .keras model file"
+                    example: "models/best_transfer_efficientnet.keras"
+                  cascade_path:
+                    type: string
+                    description: "Filesystem path to the Haar Cascade XML classifier"
+                    example: "/opt/homebrew/lib/python3.13/site-packages/cv2/data/haarcascade_frontalface_default.xml"
+              example:
+                status: "ok"
+                model_loaded: true
+                camera_source: "0"
+                model_path: "models/best_transfer_efficientnet.keras"
+                cascade_path: "/opt/homebrew/lib/python3.13/site-packages/cv2/data/haarcascade_frontalface_default.xml"
+
+  /predict/latest:
+    get:
+      summary: "Predict faces on the latest camera frame"
+      description: >
+        Runs face detection + classification on the most recently captured camera frame.
+        Returns a JSON payload with the number of faces detected and per-face predictions.
+      operationId: "predictLatest"
+      responses:
+        "200":
+          description: "Successful prediction result"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  faces_detected:
+                    type: integer
+                    description: "Number of faces detected in the frame"
+                    example: 2
+                  predictions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PredictionItem"
+        "503":
+          description: "No camera frames are available yet"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "Aún no hay frames disponibles desde la cámara"
+
+  /video_feed:
+    get:
+      summary: "MJPEG video stream with annotated frames"
+      description: >
+        Returns a continuous multipart/x-mixed-replace stream of JPEG images.
+        Each frame is annotated with bounding boxes and class labels from the
+        face detection and recognition pipeline.
+      operationId: "videoFeed"
+      responses:
+        "200":
+          description: "MJPEG video stream"
+          content:
+            multipart/x-mixed-replace:
+              schema:
+                type: string
+                format: binary
+
+  /ws/predict:
+    get:
+      summary: "WebSocket endpoint for real-time frame prediction"
+      description: >
+        Bidirectional WebSocket connection for frame-by-frame face prediction.
+
+        **Protocol:**
+        1. Client connects and sends an optional text message with client configuration
+           (e.g. `{"client": "react-hook", "format": "image/jpeg", "width": 640, "height": 480}`).
+        2. Server responds with a `ready` JSON message.
+        3. Client sends binary messages, each containing a single JPEG-encoded frame.
+        4. Server processes each frame (face detection + classification) and responds
+           with a `prediction` JSON message containing bounding boxes, classes, and confidence scores.
+        5. On error, server sends an `error` JSON message.
+
+        **Server message types:**
+        - `{"type": "ready", "message": "...", "config": {...}}` — Connection established
+        - `{"type": "prediction", "faces_detected": N, "predictions": [...]}` — Frame result
+        - `{"type": "error", "message": "..."}` — Error description
+      operationId: "websocketPredict"
+      responses:
+        "101":
+          description: "WebSocket protocol upgrade"
+
+components:
+  schemas:
+    PredictionItem:
+      type: object
+      properties:
+        bbox:
+          type: array
+          description: "Bounding box in [x, y, width, height] format"
+          items:
+            type: integer
+          example: [120, 85, 200, 200]
+        predicted_class:
+          type: integer
+          nullable: true
+          description: "Predicted class index, or null if confidence is below threshold"
+          example: 0
+        confidence:
+          type: number
+          nullable: true
+          format: float
+          description: "Confidence score of the prediction (0.0 to 1.0)"
+          example: 0.987
+        scores:
+          type: array
+          description: "Raw softmax output scores for all classes"
+          items:
+            type: number
+            format: float
+          example: [0.987, 0.013]

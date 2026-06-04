@@ -1,0 +1,24 @@
+%% System Context Diagram - Face Detection & Recognition System
+%% Converted from PlantUML c4_context.puml
+
+flowchart LR
+    User(["User"])
+
+    frontend["React SPA (Frontend)<br>Web application that captures webcam<br>video and sends frames for inference.<br>Built with Vite + TypeScript."]
+    backend["FastAPI Backend<br>Python API that orchestrates face detection<br>(Haar Cascade), face classification (Keras),<br>camera streaming, and WebSocket communication."]
+    camera[("Webcam / Camera<br>Physical or virtual camera<br>providing live video feed.")]
+    face_model[("Keras Model<br>Trained EfficientNet model<br>(best_transfer_efficientnet.keras)")]
+    haar_model[("Haar Cascade XML<br>OpenCV pre-trained Haar cascade<br>classifier for face detection.")]
+
+    User -->|Looks at| camera
+    camera -->|"getUserMedia()"| frontend
+    frontend -.->|"HTTP / WebSocket<br>(JPEG frames / JSON predictions)"| backend
+    backend -->|"Inference (Classification)"| face_model
+    backend -->|"Detection (Cascade)"| haar_model
+
+    classDef actor fill:#FFE4B5,stroke:#333,stroke-width:2px,color:#000000
+    classDef system fill:#E6E6FA,stroke:#333,stroke-width:2px,color:#000000
+    classDef external fill:#F0E68C,stroke:#333,stroke-width:1px,color:#000000
+    class User actor
+    class frontend,backend system
+    class camera,face_model,haar_model external

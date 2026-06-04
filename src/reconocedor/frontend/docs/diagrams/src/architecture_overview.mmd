@@ -1,0 +1,47 @@
+%% Architecture Overview - Face Detection & Recognition System
+%% Converted from PlantUML architecture_overview.wsd
+
+flowchart TB
+    subgraph FE["Frontend (React SPA)"]
+        direction TB
+        Page["FaceWsDemo Page"]
+        Hook["useFaceWebSocket Hook"]
+        WebcamAPI["Webcam API (getUserMedia)"]
+        WSClient["WebSocket Client"]
+    end
+
+    subgraph BE["Backend (FastAPI API)"]
+        direction TB
+        REST["REST Endpoints<br>/health, /predict/latest, /video_feed"]
+        WSEndpoint["WebSocket Endpoint<br>/ws/predict"]
+        CamReader["Camera Reader Thread"]
+        Haar["Haar Cascade Detector"]
+        Keras["Keras EfficientNet Classifier"]
+        MJPEG["MJPEG Streamer"]
+    end
+
+    Camera[("Webcam Device")]
+    FS[("File System<br>(.keras model, .xml cascade)")]
+
+    Page -->|uses| Hook
+    Hook -->|opens camera| WebcamAPI
+    Hook -->|manages connection| WSClient
+    WSClient -.->|"WebSocket (binary JPEG frames ↔ JSON predictions)"| WSEndpoint
+    Page -.->|"HTTP (health, predict latest)"| REST
+    REST -->|reads latest frame| CamReader
+    WSEndpoint -->|reads frame on demand| CamReader
+    CamReader -->|"cv2.VideoCapture(0)"| Camera
+    CamReader -->|"detectMultiScale()"| Haar
+    Haar -.->|loads haarcascade_frontalface_default.xml| FS
+    Haar -->|classify cropped faces| Keras
+    Keras -.->|loads best_transfer_efficientnet.keras| FS
+    MJPEG -->|reads latest frame| CamReader
+    MJPEG -->|detects faces| Haar
+    MJPEG -->|classifies faces| Keras
+
+    classDef frontend fill:#90EE90,stroke:#333,stroke-width:1px,color:#000000
+    classDef backend fill:#ADD8E6,stroke:#333,stroke-width:1px,color:#000000
+    classDef database fill:#D3D3D3,stroke:#333,stroke-width:1px,color:#000000
+    class Page,Hook,WebcamAPI,WSClient frontend
+    class REST,WSEndpoint,CamReader,Haar,Keras,MJPEG backend
+    class Camera,FS database

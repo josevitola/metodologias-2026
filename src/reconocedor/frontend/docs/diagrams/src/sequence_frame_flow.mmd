@@ -1,0 +1,59 @@
+%% WebSocket Frame Prediction Flow
+%% Converted from PlantUML sequence_frame_flow.puml
+
+sequenceDiagram
+    title WebSocket Frame Prediction Flow
+
+    actor User as User
+    participant FE as React SPA<br>(FaceWsDemo)
+    participant Camera as Webcam API<br>(getUserMedia)
+    participant WS as WebSocket Client<br>(useFaceWebSocket)
+    participant BE as FastAPI Server<br>(Backend)
+    participant Haar as Haar Cascade<br>Detector
+    participant Model as Keras<br>EfficientNet
+
+    Note over User,Model: Initialization
+
+    User->>FE: Opens page
+    FE->>Camera: getUserMedia({ video: true })
+    Camera-->>FE: MediaStream
+    FE->>FE: Attach stream to <video> element<br>and start playback
+
+    FE->>WS: new WebSocket("ws://localhost:8000/ws/predict")
+    WS->>BE: WebSocket connection request
+    BE-->>WS: WebSocket accept
+
+    Note over WS,BE: Binary protocol
+
+    WS->>BE: send JSON text: { client, format, width, height }
+    BE-->>WS: send JSON: { type: "ready", message, config }
+
+    Note over User,Model: Frame Capture & Prediction Loop
+
+    loop Every 300ms (or on demand)
+        FE->>FE: Draw <video> frame onto <canvas>
+        FE->>FE: canvas.toBlob("image/jpeg", 0.8)
+        FE->>WS: send binary (JPEG blob)
+        WS->>BE: receive_bytes() → decode JPEG → np.ndarray
+        BE->>Haar: detectMultiScale(gray_frame)
+        Haar-->>BE: List of face bounding boxes [x,y,w,h]
+
+        loop For each detected face
+            BE->>BE: crop face region from frame
+            BE->>BE: convert to RGB, resize to (224,224), normalize
+            BE->>Model: model.predict(face_tensor)
+            Model-->>BE: softmax scores
+            BE->>BE: argmax → predicted_class, max → confidence
+        end
+
+        BE-->>WS: send JSON: { type: "prediction", faces_detected, predictions }
+        WS->>FE: ws.onmessage → parse JSON
+        FE->>FE: setFaces(predictions) → re-render UI
+    end
+
+    Note over User,Model: Termination
+
+    User->>FE: Leaves page
+    FE->>WS: disconnectSocket()
+    WS->>BE: WebSocket close
+    FE->>Camera: stopCamera() → release MediaStream tracks

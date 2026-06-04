@@ -1,0 +1,48 @@
+%% Container Diagram - Face Detection & Recognition System
+%% Converted from PlantUML c4_containers.puml
+
+flowchart TB
+    User(["User"])
+
+    subgraph FE["React SPA (Frontend)"]
+        direction TB
+        webapp["Single Page App<br>React 19 + TypeScript + Vite<br>Renders the UI and orchestrates<br>webcam capture, frame encoding,<br>and WebSocket communication."]
+        face_hook["useFaceWebSocket Hook<br>React Custom Hook<br>Manages camera lifecycle,<br>WebSocket connection, frame<br>capture via <canvas>, and<br>periodic frame sending."]
+        webcam_api["Webcam API<br>navigator.mediaDevices.getUserMedia<br>Accesses the device camera and<br>streams video to a <video> element."]
+        websocket_client["WebSocket Client<br>WebSocket API<br>Maintains persistent connection<br>to the backend for sending JPEG<br>frames and receiving JSON predictions."]
+    end
+
+    subgraph BE["FastAPI Backend"]
+        direction TB
+        api_server["FastAPI Server<br>Python + FastAPI + uvicorn<br>Exposes REST endpoints and WebSocket<br>endpoint. Orchestrates inference pipeline."]
+        camera_reader["Camera Reader Thread<br>Python threading + OpenCV<br>Background thread that continuously<br>reads frames from the camera and<br>stores the latest frame under a lock."]
+        face_detector["Face Detector<br>OpenCV Haar Cascade<br>Detects face bounding boxes in<br>each video frame using a pre-trained<br>cascade classifier."]
+        classifier["Face Classifier<br>Keras EfficientNet<br>Classifies each detected face region<br>(cropped, normalized) using the<br>trained .keras model."]
+        mjpeg_streamer["MJPEG Streamer<br>Python generator<br>Reads latest frame, runs detection +<br>classification, annotates it, encodes<br>to JPEG, and yields multipart chunks."]
+    end
+
+    camera_device[("Webcam Device<br>Physical or virtual camera")]
+    keras_model_file[("Keras Model File<br>best_transfer_efficientnet.keras")]
+    haar_xml_file[("Haar Cascade XML File<br>haarcascade_frontalface_default.xml")]
+
+    User -->|Uses| webapp
+    webapp -->|Imports and calls| face_hook
+    face_hook -->|Opens| webcam_api
+    face_hook -->|Connects| websocket_client
+    websocket_client -.->|"WebSocket /ws/predict<br>(Binary JPEG frames / JSON predictions)"| api_server
+    webcam_api -->|"getUserMedia()"| camera_device
+    camera_device -.->|"cv2.VideoCapture(0)"| camera_reader
+    api_server -->|Reads latest frame| camera_reader
+    api_server -->|"detectMultiScale()"| face_detector
+    api_server -->|"model.predict()"| classifier
+    api_server -->|Generates| mjpeg_streamer
+    face_detector -.->|Loads XML| haar_xml_file
+    classifier -.->|Loads weights| keras_model_file
+
+    classDef frontend fill:#90EE90,stroke:#333,stroke-width:1px,color:#000000
+    classDef backend fill:#ADD8E6,stroke:#333,stroke-width:1px,color:#000000
+    classDef database fill:#D3D3D3,stroke:#333,stroke-width:1px,color:#000000
+    class User frontend
+    class webapp,face_hook,webcam_api,websocket_client frontend
+    class api_server,camera_reader,face_detector,classifier,mjpeg_streamer backend
+    class camera_device,keras_model_file,haar_xml_file database
