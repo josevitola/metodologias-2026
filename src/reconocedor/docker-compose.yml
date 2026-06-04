@@ -1,0 +1,9 @@
+services:
+  reconocedor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reconocedor
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
