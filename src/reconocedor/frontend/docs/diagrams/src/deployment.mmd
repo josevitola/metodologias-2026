@@ -1,6 +1,3 @@
-%% Deployment Diagram - Face Detection & Recognition System
-%% Converted from PlantUML deployment.puml
-
 flowchart TB
     subgraph DevMachine["Developer Machine (macOS)"]
         direction TB
@@ -11,7 +8,7 @@ flowchart TB
             PnpmLock["pnpm-lock.yaml"]
             PackageJson["package.json"]
             subgraph Src["src/"]
-                App["App.tsx"]
+                FrontendApp["App.tsx"]
                 FaceWsDemo["pages/FaceWsDemo.tsx"]
                 Hook["hooks/index.ts"]
             end
@@ -60,9 +57,9 @@ flowchart TB
 
     DevMachine -->|Installs from| External
     Vite -.->|"HTTP (localhost:8000)"| Uvicorn
-    Uvicorn -->|cv2.VideoCapture(0)| Camera
-    Uvicorn -->|keras.saving.load_model()| KerasModel
-    Uvicorn -->|cv2.CascadeClassifier()| HaarCascade
+    Uvicorn -->|"cv2.VideoCapture(0)"| Camera
+    Uvicorn -->|"keras.saving.load_model()"| KerasModel
+    Uvicorn -->|"cv2.CascadeClassifier()"| HaarCascade
 
     classDef devnode fill:#F0F0F0,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
     classDef artifact fill:#FFFACD,stroke:#333,stroke-width:1px
@@ -72,5 +69,5 @@ flowchart TB
     class DevMachine,FrontendNode,BackendNode,Webcam devnode
     class Vite,PnpmLock,PackageJson,Uvicorn,MainPy,Requirements artifact
     class Src,PublicModels,Diagrams,App,Models,BackendDocs folder
-    class App,FaceWsDemo,Hook,FaceApiModels,ArchOverview,C4Context,C4Containers,SeqFrameFlow,DeployDiagram,Config,Schemas,Utils,AppMain,KerasModel,ApiYaml,Camera file
+    class FrontendApp,FaceWsDemo,Hook,FaceApiModels,ArchOverview,C4Context,C4Containers,SeqFrameFlow,DeployDiagram,Config,Schemas,Utils,AppMain,KerasModel,ApiYaml,Camera file
     class HaarCascade,PyPkgs,NpmPkgs external
